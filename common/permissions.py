@@ -1,0 +1,78 @@
+from rest_framework.permissions import SAFE_METHODS, BasePermission
+
+
+class IsSuperAdminUser(BasePermission):
+    """
+    Allows access only to superusers.
+    """
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and request.user.is_superuser)
+
+
+class HasAnyRole(BasePermission):
+    """
+    Checks if authenticated user belongs to any of the specified roles (groups).
+    Can be used by setting `allowed_roles = ['Admin', 'Manager']` on view
+    or initializing HasAnyRole(['Admin', 'Doctor']).
+    """
+    def __init__(self, allowed_roles=None):
+        self.allowed_roles = allowed_roles or []
+
+    def __call__(self):
+        return self
+
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+
+        if request.user.is_superuser:
+            return True
+
+        roles = getattr(view, "allowed_roles", self.allowed_roles)
+        if not roles:
+            return True
+
+        # Check if user has explicit role field or belongs to the group
+        user_role = getattr(request.user, "role", None)
+        if user_role and user_role in roles:
+            return True
+
+        return request.user.groups.filter(name__in=roles).exists()
+
+
+class HasModelPermission(BasePermission):
+    """
+    Enforces Django model permission checks (e.g. 'users.view_user').
+    View must specify `required_permission = 'app_label.action_model'`.
+    """
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+
+        if request.user.is_superuser:
+            return True
+
+        permission = getattr(view, "required_permission", None)
+        if not permission:
+            return False
+
+        return request.user.has_perm(permission)
+
+
+class IsOwnerOrReadOnly(BasePermission):
+    """
+    Object-level permission to only allow owners of an object to edit it.
+    """
+    def has_object_permission(self, request, view, obj):
+        if request.method in SAFE_METHODS:
+            return True
+
+        # Support common ownership attributes
+        owner = getattr(obj, "user", getattr(obj, "author", getattr(obj, "owner", None)))
+        if owner is not None:
+            return owner == request.user
+
+        if obj == request.user:
+            return True
+
+        return False
