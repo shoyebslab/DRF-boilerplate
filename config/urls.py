@@ -8,26 +8,37 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
+from apps.api.views import api_root_redirect_view
+
 urlpatterns = [
+    # Root entrypoint redirect to API documentation (adopted from DRF reference)
+    path("", api_root_redirect_view, name="root-redirect"),
+
+    # Admin Dashboard
     path("admin/", admin.site.urls),
 
-    # Authentication & Profile APIs
-    path("api/v1/auth/", include("apps.accounts.urls")),
+    # Browsable API authentication login/logout (adopted from DRF reference)
+    path("api-auth/", include("rest_framework.urls")),
 
-    # User Management APIs
-    path("api/v1/users/", include("apps.users.urls")),
+    # Centralized Versioned API Endpoints (v1)
+    path("api/v1/", include("apps.api.urls")),
 
-    # Role & Permission APIs (RBAC)
-    path("api/v1/roles/", include("apps.roles.urls")),
-
-    # OpenAPI Schema
+    # OpenAPI Schema & Interactive Documentation (supporting /swagger/ like in DRF & /api/docs/)
+    path("swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui-alias"),
+    path("redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc-alias"),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-
-    # Swagger UI & ReDoc
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 ]
 
+# Development Debug Toolbar & Static Media Serving
 if settings.DEBUG:
+    try:
+        from debug_toolbar.toolbar import debug_toolbar_urls
+
+        urlpatterns += debug_toolbar_urls()
+    except (ImportError, Exception):
+        pass
+
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

@@ -1,4 +1,4 @@
-from rest_framework.permissions import SAFE_METHODS, BasePermission
+from rest_framework.permissions import SAFE_METHODS, BasePermission, DjangoModelPermissions
 
 
 class IsSuperAdminUser(BasePermission):
@@ -76,3 +76,26 @@ class IsOwnerOrReadOnly(BasePermission):
             return True
 
         return False
+
+
+class IsAdminOrReadOnly(BasePermission):
+    """
+    Allows read-only access for safe methods (GET, HEAD, OPTIONS) to all users,
+    while restricting write actions (POST, PUT, PATCH, DELETE) to staff/admin users.
+    Adopted from DRF reference standard.
+    """
+    def has_permission(self, request, view):
+        if request.method in SAFE_METHODS:
+            return True
+        return bool(request.user and request.user.is_staff)
+
+
+class FullDjangoModelPermission(DjangoModelPermissions):
+    """
+    Extends DjangoModelPermissions to also require view permissions on GET requests.
+    Adopted from DRF reference standard.
+    """
+    def __init__(self):
+        super().__init__()
+        self.perms_map["GET"] = ["%(app_label)s.view_%(model_name)s"]
+

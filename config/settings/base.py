@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "common",
 
     # Feature domain applications
+    "apps.api",
     "apps.accounts",
     "apps.users",
     "apps.roles",
@@ -155,4 +156,9 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    "SWAGGER_UI_SETTINGS": {
+        "deepLinking": True,
+        "persistAuthorization": True,
+        "displayOperationId": False,
+    },
 }

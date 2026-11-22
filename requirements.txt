@@ -1,8 +1,12 @@
 # Core Backend Framework & REST API
 Django>=5.0,<6.0
-djangorestframework>=3.15.0,<3.17.0
+djangorestframework>=3.15.0
 djangorestframework-simplejwt>=5.3.1,<6.0.0
 drf-spectacular>=0.27.2,<1.0.0
+drf-nested-routers>=0.94.1
+
+# HTTP Client & External Integrations
+requests>=2.31.0
 
 # Database Drivers (PostgreSQL)
 psycopg[binary]>=3.1.18,<4.0.0
@@ -16,7 +20,8 @@ django-environ>=0.11.2,<1.0.0
 # Image & Media Processing
 Pillow>=10.2.0,<13.0.0
 
-# Development, Testing & Code Quality
+# Development, Profiling, Testing & Code Quality
+django-debug-toolbar>=5.0.0
 pytest>=8.0.0
 pytest-django>=4.8.0
 ruff>=0.4.0
