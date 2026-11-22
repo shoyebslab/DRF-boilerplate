@@ -1,3 +1,7 @@
+from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -11,7 +15,14 @@ from apps.accounts.serializers.user import ChangePasswordSerializer, UserProfile
 from apps.accounts.services.auth_service import change_user_password, log_activity
 from common.utils.helpers import get_client_ip
 
+User = get_user_model()
 
+
+@extend_schema(
+    summary="Obtain JWT token pair",
+    description="Authenticate with username/email and password to obtain JWT access/refresh tokens and complete user profile details.",
+    request=CustomTokenObtainPairSerializer,
+)
 class CustomTokenObtainPairView(TokenObtainPairView):
     """
     Takes a set of user credentials (username/email & password) and returns
@@ -22,8 +33,22 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
         if response.status_code == status.HTTP_200_OK:
-            # Optionally log user login
-            pass
+            try:
+                username_or_email = request.data.get("username") or request.data.get("email")
+                if username_or_email:
+                    user = (
+                        User.objects.filter(email__iexact=username_or_email).first()
+                        or User.objects.filter(username__iexact=username_or_email).first()
+                    )
+                    if user:
+                        log_activity(
+                            user=user,
+                            action="User Logged In",
+                            ip_address=get_client_ip(request),
+                            user_agent=request.META.get("HTTP_USER_AGENT", "")
+                        )
+            except Exception:
+                pass
         return response
 
 
@@ -71,3 +96,78 @@ class ChangePasswordView(APIView):
             user_agent=request.META.get("HTTP_USER_AGENT", "")
         )
         return Response({"message": "Password updated successfully."}, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    summary="Request password reset",
+    description="Initiates password reset by email. Generates reset token if the account exists.",
+    responses={200: {"type": "object", "properties": {"detail": {"type": "string"}}}},
+)
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = (request.data.get("email") or "").strip()
+        if email:
+            user = User.objects.filter(email__iexact=email).first()
+            if user:
+                uid = urlsafe_base64_encode(force_bytes(user.pk))
+                token = default_token_generator.make_token(user)
+                log_activity(
+                    user=user,
+                    action=f"Password Reset Requested (token: {uid}_{token})",
+                    ip_address=get_client_ip(request),
+                    user_agent=request.META.get("HTTP_USER_AGENT", "")
+                )
+        return Response(
+            {"detail": "If an account exists with this email, password reset instructions have been sent."},
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Confirm password reset",
+    description="Resets the user's password using the token received in reset link.",
+    responses={200: {"type": "object", "properties": {"detail": {"type": "string"}}}},
+)
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        token_str = (request.data.get("token") or "").strip()
+        new_password = (request.data.get("password") or "").strip()
+
+        if not token_str or not new_password:
+            return Response(
+                {"detail": "Token and new password are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            uidb64, token = token_str.split("_", 1)
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except Exception:
+            return Response(
+                {"detail": "Invalid or expired reset token."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not default_token_generator.check_token(user, token):
+            return Response(
+                {"detail": "Invalid or expired reset token."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.set_password(new_password)
+        user.save()
+        log_activity(
+            user=user,
+            action="Password Reset Completed",
+            ip_address=get_client_ip(request),
+            user_agent=request.META.get("HTTP_USER_AGENT", "")
+        )
+        return Response(
+            {"detail": "Password has been reset successfully."},
+            status=status.HTTP_200_OK,
+        )

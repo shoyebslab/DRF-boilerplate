@@ -1,6 +1,7 @@
 from django.urls import include, path
 
-from apps.api.views import APIRootView, HealthCheckView
+from apps.api.views import APIRootView, HealthCheckView, ReportStatsView
+from apps.roles.views.role import PermissionListView
 
 urlpatterns = [
     # API v1 Discovery Root & Health
@@ -11,4 +12,6 @@ urlpatterns = [
     path("auth/", include("apps.accounts.urls")),
     path("users/", include("apps.users.urls")),
     path("roles/", include("apps.roles.urls")),
+    path("permissions/", PermissionListView.as_view(), name="api-permissions"),
+    path("reports/stats/", ReportStatsView.as_view(), name="api-reports-stats"),
 ]

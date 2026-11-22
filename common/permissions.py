@@ -34,8 +34,12 @@ class HasAnyRole(BasePermission):
 
         # Check if user has explicit role field or belongs to the group
         user_role = getattr(request.user, "role", None)
-        if user_role and user_role in roles:
-            return True
+        if user_role:
+            normalized_roles = [str(r).upper() for r in roles]
+            if str(user_role).upper() in normalized_roles:
+                return True
+            if str(user_role).upper() in ["SUPER_ADMIN", "ADMIN"] and any(r in ["ADMIN", "SUPER_ADMIN"] for r in normalized_roles):
+                return True
 
         return request.user.groups.filter(name__in=roles).exists()
 
