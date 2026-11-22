@@ -48,7 +48,7 @@ def custom_exception_handler(exc, context):
             "success": False,
             "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
             "message": "Internal server error. Please contact system administrator.",
-            "errors": str(exc) if hasattr(exc, "message") else "Server error",
+            "errors": str(exc) if str(exc) else "Server error",
         },
         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )

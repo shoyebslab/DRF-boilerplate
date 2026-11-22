@@ -12,6 +12,7 @@ urlpatterns = [
     path("auth/", include("apps.accounts.urls")),
     path("users/", include("apps.users.urls")),
     path("roles/", include("apps.roles.urls")),
+    path("settings/", include("apps.settings.urls")),
     path("permissions/", PermissionListView.as_view(), name="api-permissions"),
     path("reports/stats/", ReportStatsView.as_view(), name="api-reports-stats"),
 ]
